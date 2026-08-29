@@ -19,9 +19,9 @@ COPY . .
 # Expose port 3000
 EXPOSE 3000
 
-# Run Liquibase update with the correct folder path, then start Express
+# Run Liquibase update with the exact matching folder path, then start Express
 CMD npx liquibase --search-path=. update \
-    --changelog-file=liquibase/db.changelog-master.xml \
+    --changelog-file=liquibase/changelog/db.changelog-master.xml \
     --url="${LIQUIBASE_URL}" \
     --username="${LIQUIBASE_USERNAME}" \
     --password="${LIQUIBASE_PASSWORD}" && \
