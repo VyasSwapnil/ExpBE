@@ -19,9 +19,8 @@ COPY . .
 # Expose port 3000
 EXPOSE 3000
 
-# Run Liquibase update with search-path set to current directory (/app), then boot the server
-CMD npx liquibase update \
-    --search-path=. \
+# Run Liquibase with the global search-path flag before the update command, then boot the server
+CMD npx liquibase --search-path=. update \
     --changelog-file=db/changelog/db.changelog-master.xml \
     --url="${LIQUIBASE_URL}" \
     --username="${LIQUIBASE_USERNAME}" \
