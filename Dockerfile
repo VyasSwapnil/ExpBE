@@ -9,15 +9,21 @@ RUN apt-get update && \
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and install dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the application code
+# Copy all project files into /app
 COPY . .
 
-# Expose the port your Express app runs on
+# Expose port 3000
 EXPOSE 3000
 
-# Run Liquibase update using environment variables, then start the Express server
-CMD npx liquibase update --url="${LIQUIBASE_URL}" --username="${LIQUIBASE_USERNAME}" --password="${LIQUIBASE_PASSWORD}" --changelog-file=db/changelog/db.changelog-master.xml && npm start
+# Run Liquibase update with search-path set to current directory (/app), then boot the server
+CMD npx liquibase update \
+    --search-path=. \
+    --changelog-file=db/changelog/db.changelog-master.xml \
+    --url="${LIQUIBASE_URL}" \
+    --username="${LIQUIBASE_USERNAME}" \
+    --password="${LIQUIBASE_PASSWORD}" && \
+    npm start
