@@ -5,15 +5,222 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <changeSet id="1" author="myuser">
+    <!-- 1. Remove existing table and its changelog record -->
+    <changeSet id="drop-existing-schema" author="swapnil">
+        <!-- Bypasses failure if the table doesn't exist (e.g., on a fresh database) -->
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="users"/>
+        </preConditions>
+        <dropTable tableName="users" cascadeConstraints="true"/>
+        <sql>DELETE FROM databasechangelog WHERE id = '1' AND author = 'myuser';</sql>
+    </changeSet>
+
+    <!-- 2. Core Module: Users -->
+    <changeSet id="create-users-table" author="swapnil">
         <createTable tableName="users">
-            <column name="id" type="serial">
+            <column name="user_id" type="uuid" defaultValueComputed="gen_random_uuid()">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
-            <column name="username" type="varchar(50)">
-                <constraints nullable="false" unique="true"/>
+            <column name="username" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <!-- 3. Gym Log Module -->
+    <changeSet id="create-gym-module" author="swapnil">
+        <createTable tableName="exercises">
+            <column name="exercise_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="muscle_group" type="varchar(100)">
+                <constraints nullable="false"/>
             </column>
         </createTable>
+
+        <createTable tableName="workout_plans">
+            <column name="plan_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_plans_user" referencedTableName="users" referencedColumnNames="user_id"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="plan_days">
+            <column name="plan_day_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="plan_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_plandays_plan" referencedTableName="workout_plans" referencedColumnNames="plan_id" deleteCascade="true"/>
+            </column>
+            <column name="day_sequence" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_rest_day" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="plan_exercises">
+            <column name="plan_exec_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="plan_day_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_planexec_day" referencedTableName="plan_days" referencedColumnNames="plan_day_id" deleteCascade="true"/>
+            </column>
+            <column name="exercise_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_planexec_exercise" referencedTableName="exercises" referencedColumnNames="exercise_id"/>
+            </column>
+            <column name="sequence_num" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="daily_gym_logs">
+            <column name="log_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_gymlogs_user" referencedTableName="users" referencedColumnNames="user_id"/>
+            </column>
+            <column name="log_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="plan_id" type="uuid">
+                <constraints nullable="true" foreignKeyName="fk_gymlogs_plan" referencedTableName="workout_plans" referencedColumnNames="plan_id"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="logged_exercises">
+            <column name="log_exec_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="log_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_loggedexec_log" referencedTableName="daily_gym_logs" referencedColumnNames="log_id" deleteCascade="true"/>
+            </column>
+            <column name="exercise_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_loggedexec_exercise" referencedTableName="exercises" referencedColumnNames="exercise_id"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="logged_sets">
+            <column name="set_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="log_exec_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_loggedsets_exec" referencedTableName="logged_exercises" referencedColumnNames="log_exec_id" deleteCascade="true"/>
+            </column>
+            <column name="set_number" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reps" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="weight_used" type="decimal">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- 4. Daily Habit Tracker Module -->
+    <changeSet id="create-habit-module" author="swapnil">
+        <createTable tableName="habit_types">
+            <column name="type_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_global" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="creator_id" type="uuid">
+                <constraints nullable="true" foreignKeyName="fk_habittypes_creator" referencedTableName="users" referencedColumnNames="user_id"/>
+            </column>
+            <column name="metric_schema" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="user_habits">
+            <column name="user_habit_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_userhabits_user" referencedTableName="users" referencedColumnNames="user_id"/>
+            </column>
+            <column name="type_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_userhabits_type" referencedTableName="habit_types" referencedColumnNames="type_id"/>
+            </column>
+            <column name="daily_target" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="habit_logs">
+            <column name="log_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_habitlogs_user" referencedTableName="users" referencedColumnNames="user_id"/>
+            </column>
+            <column name="log_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="habit_entries">
+            <column name="entry_id" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="log_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_habitentries_log" referencedTableName="habit_logs" referencedColumnNames="log_id" deleteCascade="true"/>
+            </column>
+            <column name="user_habit_id" type="uuid">
+                <constraints nullable="false" foreignKeyName="fk_habitentries_habit" referencedTableName="user_habits" referencedColumnNames="user_habit_id"/>
+            </column>
+            <column name="logged_data" type="jsonb">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- 5. Indexes for Query Performance -->
+    <changeSet id="create-performance-indexes" author="swapnil">
+        <!-- Gym Logs Indexes -->
+        <createIndex tableName="workout_plans" indexName="idx_workout_plans_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="daily_gym_logs" indexName="idx_gym_logs_user_date">
+            <column name="user_id"/>
+            <column name="log_date"/>
+        </createIndex>
+        <createIndex tableName="exercises" indexName="idx_exercises_muscle_group">
+            <column name="muscle_group"/>
+        </createIndex>
+        
+        <!-- Habit Logs Indexes -->
+        <createIndex tableName="user_habits" indexName="idx_user_habits_user">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="habit_logs" indexName="idx_habit_logs_user_date">
+            <column name="user_id"/>
+            <column name="log_date"/>
+        </createIndex>
     </changeSet>
 
 </databaseChangeLog>
